@@ -198,7 +198,7 @@ static void ok_misaligned_buffer(void) {
 
 	static struct {
 		char c;
-		char buffer[291]; // The exact minimum number of bytes required
+		char buffer[291]; // Experimentally determined to be the minimum number of required bytes
 	} misaligned;
 
 	assert(!json_init(misaligned.buffer, sizeof(misaligned.buffer)));
