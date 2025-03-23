@@ -41,29 +41,27 @@ struct token {
 	char *str;
 };
 
-struct {
-	char *text;
-	size_t text_capacity;
-	size_t text_size;
+static char *text;
+static size_t text_capacity;
+static size_t text_size;
 
-	struct token *tokens;
-	size_t tokens_capacity;
-	size_t tokens_size;
+static struct token *tokens;
+static size_t tokens_capacity;
+static size_t tokens_size;
 
-	struct json_node *nodes;
-	size_t nodes_capacity;
-	size_t nodes_size;
+static struct json_node *nodes;
+static size_t nodes_capacity;
+static size_t nodes_size;
 
-	char *strings;
-	size_t strings_capacity;
-	size_t strings_size;
+static char *strings;
+static size_t strings_capacity;
+static size_t strings_size;
 
-	struct json_field *fields;
-	uint32_t *fields_buckets;
-	uint32_t *fields_chains;
-	size_t fields_capacity;
-	size_t fields_size;
-} *g;
+static struct json_field *fields;
+static uint32_t *fields_buckets;
+static uint32_t *fields_chains;
+static size_t fields_capacity;
+static size_t fields_size;
 
 static size_t recursion_depth;
 
@@ -71,35 +69,35 @@ static struct json_node parse_string(size_t *i);
 static struct json_node parse_array(size_t *i);
 
 static void push_node(struct json_node node) {
-	if (g->nodes_size + 1 > g->nodes_capacity) {
-		g->nodes_capacity *= 2;
+	if (nodes_size + 1 > nodes_capacity) {
+		nodes_capacity *= 2;
 		json_error(JSON_RESTART);
 	}
 
-	g->nodes[g->nodes_size++] = node;
+	nodes[nodes_size++] = node;
 }
 
 static void push_field(struct json_field field) {
-	if (g->fields_size + 1 > g->fields_capacity) {
-		g->fields_capacity *= 2;
+	if (fields_size + 1 > fields_capacity) {
+		fields_capacity *= 2;
 		json_error(JSON_RESTART);
 	}
 
-	g->fields[g->fields_size++] = field;
+	fields[fields_size++] = field;
 }
 
 static char *push_string(char *slice_start, size_t length) {
-	if (g->strings_size + length + 1 > g->strings_capacity) {
-		g->strings_capacity *= 2;
+	if (strings_size + length + 1 > strings_capacity) {
+		strings_capacity *= 2;
 		json_error(JSON_RESTART);
 	}
 
-	char *new_str = g->strings + g->strings_size;
+	char *new_str = strings + strings_size;
 
 	for (size_t i = 0; i < length; i++) {
-		g->strings[g->strings_size++] = slice_start[i];
+		strings[strings_size++] = slice_start[i];
 	}
-	g->strings[g->strings_size++] = '\0';
+	strings[strings_size++] = '\0';
 
 	return new_str;
 }
@@ -117,7 +115,7 @@ static uint32_t elf_hash(const char *namearg) {
 }
 
 static bool is_duplicate_key(struct json_field *child_fields, size_t field_count, char *key) {
-	uint32_t i = g->fields_buckets[elf_hash(key) % field_count];
+	uint32_t i = fields_buckets[elf_hash(key) % field_count];
 
 	while (1) {
 		if (i == UINT32_MAX) {
@@ -128,14 +126,14 @@ static bool is_duplicate_key(struct json_field *child_fields, size_t field_count
 			break;
 		}
 
-		i = g->fields_chains[i];
+		i = fields_chains[i];
 	}
 
 	return true;
 }
 
 static void check_duplicate_keys(struct json_field *child_fields, size_t field_count) {
-	memset(g->fields_buckets, 0xff, field_count * sizeof(*g->fields_buckets));
+	memset(fields_buckets, 0xff, field_count * sizeof(*fields_buckets));
 
 	size_t chains_size = 0;
 
@@ -146,9 +144,9 @@ static void check_duplicate_keys(struct json_field *child_fields, size_t field_c
 
 		uint32_t bucket_index = elf_hash(key) % field_count;
 
-		g->fields_chains[chains_size++] = g->fields_buckets[bucket_index];
+		fields_chains[chains_size++] = fields_buckets[bucket_index];
 
-		g->fields_buckets[bucket_index] = i;
+		fields_buckets[bucket_index] = i;
 	}
 }
 
@@ -176,8 +174,8 @@ static struct json_node parse_object(size_t *i) {
 	struct json_node array;
 	struct json_node object;
 
-	while (*i < g->tokens_size) {
-		struct token *token = g->tokens + *i;
+	while (*i < tokens_size) {
+		struct token *token = tokens + *i;
 
 		switch (token->type) {
 		case TOKEN_TYPE_STRING:
@@ -189,7 +187,7 @@ static struct json_node parse_object(size_t *i) {
 				seen_value = true;
 				seen_comma = false;
 				string = parse_string(i);
-				field.value = g->nodes + g->nodes_size;
+				field.value = nodes + nodes_size;
 				push_node(string);
 				json_assert(node.object.field_count < MAX_CHILD_NODES, JSON_TOO_MANY_CHILD_NODES);
 				child_fields[node.object.field_count++] = field;
@@ -202,7 +200,7 @@ static struct json_node parse_object(size_t *i) {
 				seen_value = true;
 				seen_comma = false;
 				array = parse_array(i);
-				field.value = g->nodes + g->nodes_size;
+				field.value = nodes + nodes_size;
 				push_node(array);
 				json_assert(node.object.field_count < MAX_CHILD_NODES, JSON_TOO_MANY_CHILD_NODES);
 				child_fields[node.object.field_count++] = field;
@@ -217,7 +215,7 @@ static struct json_node parse_object(size_t *i) {
 				seen_value = true;
 				seen_comma = false;
 				object = parse_object(i);
-				field.value = g->nodes + g->nodes_size;
+				field.value = nodes + nodes_size;
 				push_node(object);
 				json_assert(node.object.field_count < MAX_CHILD_NODES, JSON_TOO_MANY_CHILD_NODES);
 				child_fields[node.object.field_count++] = field;
@@ -233,7 +231,7 @@ static struct json_node parse_object(size_t *i) {
 			} else if (seen_comma) {
 				json_error(JSON_TRAILING_COMMA);
 			}
-			node.object.fields = g->fields + g->fields_size;
+			node.object.fields = fields + fields_size;
 			for (size_t field_index = 0; field_index < node.object.field_count; field_index++) {
 				push_field(child_fields[field_index]);
 			}
@@ -276,8 +274,8 @@ static struct json_node parse_array(size_t *i) {
 	bool seen_value = false;
 	bool seen_comma = false;
 
-	while (*i < g->tokens_size) {
-		struct token *token = g->tokens + *i;
+	while (*i < tokens_size) {
+		struct token *token = tokens + *i;
 
 		switch (token->type) {
 		case TOKEN_TYPE_STRING:
@@ -296,7 +294,7 @@ static struct json_node parse_array(size_t *i) {
 			break;
 		case TOKEN_TYPE_ARRAY_CLOSE:
 			json_assert(!seen_comma, JSON_TRAILING_COMMA);
-			node.array.values = g->nodes + g->nodes_size;
+			node.array.values = nodes + nodes_size;
 			for (size_t value_index = 0; value_index < node.array.value_count; value_index++) {
 				push_node(child_nodes[value_index]);
 			}
@@ -331,7 +329,7 @@ static struct json_node parse_string(size_t *i) {
 
 	node.type = JSON_NODE_STRING;
 
-	struct token *token = g->tokens + *i;
+	struct token *token = tokens + *i;
 	node.string = token->str;
 
 	(*i)++;
@@ -340,7 +338,7 @@ static struct json_node parse_string(size_t *i) {
 }
 
 static struct json_node parse(size_t *i) {
-	struct token *t = g->tokens + *i;
+	struct token *t = tokens + *i;
 	struct json_node node;
 
 	switch (t->type) {
@@ -363,52 +361,52 @@ static struct json_node parse(size_t *i) {
 		json_error(JSON_UNEXPECTED_COLON);
 	}
 
-	json_assert(*i >= g->tokens_size, JSON_UNEXPECTED_EXTRA_CHARACTER);
+	json_assert(*i >= tokens_size, JSON_UNEXPECTED_EXTRA_CHARACTER);
 
 	return node;
 }
 
 static void push_token(enum token_type type, size_t offset, size_t length) {
-	if (g->tokens_size + 1 > g->tokens_capacity) {
-		g->tokens_capacity *= 2;
+	if (tokens_size + 1 > tokens_capacity) {
+		tokens_capacity *= 2;
 		json_error(JSON_RESTART);
 	}
 
-	g->tokens[g->tokens_size++] = (struct token){
+	tokens[tokens_size++] = (struct token){
 		.type = type,
-		.str = push_string(g->text + offset, length),
+		.str = push_string(text + offset, length),
 	};
 }
 
 static void tokenize(void) {
 	size_t i = 0;
 
-	while (i < g->text_size) {
-		if (g->text[i] == '"') {
+	while (i < text_size) {
+		if (text[i] == '"') {
 			size_t string_start_index = i;
 
-			while (++i < g->text_size && g->text[i] != '"') {}
+			while (++i < text_size && text[i] != '"') {}
 
-			json_assert(g->text[i] == '"', JSON_UNCLOSED_STRING);
+			json_assert(text[i] == '"', JSON_UNCLOSED_STRING);
 
 			push_token(
 				TOKEN_TYPE_STRING,
 				string_start_index + 1,
 				i - string_start_index - 1
 			);
-		} else if (g->text[i] == '[') {
+		} else if (text[i] == '[') {
 			push_token(TOKEN_TYPE_ARRAY_OPEN, i, 1);
-		} else if (g->text[i] == ']') {
+		} else if (text[i] == ']') {
 			push_token(TOKEN_TYPE_ARRAY_CLOSE, i, 1);
-		} else if (g->text[i] == '{') {
+		} else if (text[i] == '{') {
 			push_token(TOKEN_TYPE_OBJECT_OPEN, i, 1);
-		} else if (g->text[i] == '}') {
+		} else if (text[i] == '}') {
 			push_token(TOKEN_TYPE_OBJECT_CLOSE, i, 1);
-		} else if (g->text[i] == ',') {
+		} else if (text[i] == ',') {
 			push_token(TOKEN_TYPE_COMMA, i, 1);
-		} else if (g->text[i] == ':') {
+		} else if (text[i] == ':') {
 			push_token(TOKEN_TYPE_COLON, i, 1);
-		} else if (!isspace(g->text[i])) {
+		} else if (!isspace(text[i])) {
 			json_error(JSON_UNRECOGNIZED_CHARACTER);
 		}
 		i++;
@@ -419,10 +417,10 @@ static void read_text(char *json_file_path) {
 	FILE *f = fopen(json_file_path, "r");
 	json_assert(f, JSON_FAILED_TO_OPEN_FILE);
 
-	g->text_size = fread(
-		g->text,
+	text_size = fread(
+		text,
 		sizeof(char),
-		g->text_capacity,
+		text_capacity,
 		f
 	);
 
@@ -431,10 +429,10 @@ static void read_text(char *json_file_path) {
 
 	json_assert(fclose(f) == 0, JSON_FAILED_TO_CLOSE_FILE);
 
-	json_assert(g->text_size != 0, JSON_FILE_EMPTY);
+	json_assert(text_size != 0, JSON_FILE_EMPTY);
 
 	if (!is_eof) {
-		g->text_capacity *= 2;
+		text_capacity *= 2;
 		json_error(JSON_RESTART);
 	}
 
@@ -453,52 +451,52 @@ static size_t get_padding(size_t n) {
 }
 
 static void *get_next_aligned_area(void *buffer, size_t *size) {
-	// *size+=get_padding(0x1+0x12)
-	// *size+=get_padding(0x13)
-	// *size+=0xd
-	// *size=0x1f
+	// *size+=get_padding(0x1+0xf)
+	// *size+=get_padding(0x10)
+	// *size+=0x0
+	// *size=0xf
 	*size += get_padding((size_t)buffer + *size);
 
-	return (char *)buffer + *size; // 0x1+0x1f is 0x20
+	return (char *)buffer + *size; // 0x1+0xf is 0x10
 }
 
-static void allocate_arrays(void *buffer, size_t padding, size_t capacity) {
-	g->text_size = 0;
-	g->tokens_size = 0;
-	g->nodes_size = 0;
-	g->strings_size = 0;
-	g->fields_size = 0;
+static void allocate_arrays(void *buffer, size_t capacity) {
+	text_size = 0;
+	tokens_size = 0;
+	nodes_size = 0;
+	strings_size = 0;
+	fields_size = 0;
 
-	// Reserve space for the g struct itself in the buffer
-	size_t size = padding + sizeof(*g); // size=0xf+0x3 is size=0x12
-	check_if_out_of_memory(size, capacity); // 0x12 <= 0x20
+	// Assuming buffer=0x1 and buffer_capacity=0x20
+	size_t size = get_padding((size_t)buffer); // size=0xf
+	check_if_out_of_memory(size, capacity); // 0xf <= 0x20
 
-	g->text = get_next_aligned_area(buffer, &size); // g->text=0x20 and size=0x1f
-	size += g->text_capacity * sizeof(*g->text);
+	text = get_next_aligned_area(buffer, &size); // text=0x10 and size=0xf
+	size += text_capacity * sizeof(*text);
 	check_if_out_of_memory(size, capacity);
 
-	g->tokens = get_next_aligned_area(buffer, &size);
-	size += g->tokens_capacity * sizeof(*g->tokens);
+	tokens = get_next_aligned_area(buffer, &size);
+	size += tokens_capacity * sizeof(*tokens);
 	check_if_out_of_memory(size, capacity);
 
-	g->nodes = get_next_aligned_area(buffer, &size);
-	size += g->nodes_capacity * sizeof(*g->nodes);
+	nodes = get_next_aligned_area(buffer, &size);
+	size += nodes_capacity * sizeof(*nodes);
 	check_if_out_of_memory(size, capacity);
 
-	g->strings = get_next_aligned_area(buffer, &size);
-	size += g->strings_capacity * sizeof(*g->strings);
+	strings = get_next_aligned_area(buffer, &size);
+	size += strings_capacity * sizeof(*strings);
 	check_if_out_of_memory(size, capacity);
 
-	g->fields = get_next_aligned_area(buffer, &size);
-	size += g->fields_capacity * sizeof(*g->fields);
+	fields = get_next_aligned_area(buffer, &size);
+	size += fields_capacity * sizeof(*fields);
 	check_if_out_of_memory(size, capacity);
 
-	g->fields_buckets = get_next_aligned_area(buffer, &size);
-	size += g->fields_capacity * sizeof(*g->fields_buckets);
+	fields_buckets = get_next_aligned_area(buffer, &size);
+	size += fields_capacity * sizeof(*fields_buckets);
 	check_if_out_of_memory(size, capacity);
 
-	g->fields_chains = get_next_aligned_area(buffer, &size);
-	size += g->fields_capacity * sizeof(*g->fields_chains);
+	fields_chains = get_next_aligned_area(buffer, &size);
+	size += fields_capacity * sizeof(*fields_chains);
 	check_if_out_of_memory(size, capacity);
 }
 
@@ -508,12 +506,7 @@ enum json_status json(char *json_file_path, struct json_node *returned, void *bu
 		return status;
 	}
 
-	// Reserve space for the g struct itself in the buffer
-	// Assuming buffer=0x1, sizeof(*g)=0x3, and buffer_capacity=0x20
-	size_t padding = get_padding((size_t)buffer); // padding=0xf
-	g = (void *)(padding + (char *)buffer); // g=0x10
-
-	allocate_arrays(buffer, padding, buffer_capacity);
+	allocate_arrays(buffer, buffer_capacity);
 
 	read_text(json_file_path);
 
@@ -527,22 +520,12 @@ enum json_status json(char *json_file_path, struct json_node *returned, void *bu
 	return JSON_OK;
 }
 
-bool json_init(void *buffer, size_t buffer_capacity) {
-	size_t padding = get_padding((size_t)buffer);
-
-	if (buffer_capacity < padding + sizeof(*g)) {
-		return true;
-	}
-
-	g = (void *)(padding + (char *)buffer);
-
-	g->text_capacity = 1;
-	g->tokens_capacity = 1;
-	g->nodes_capacity = 1;
-	g->strings_capacity = 1;
-	g->fields_capacity = 1;
-
-	return false;
+void json_init(void) {
+	text_capacity = 1;
+	tokens_capacity = 1;
+	nodes_capacity = 1;
+	strings_capacity = 1;
+	fields_capacity = 1;
 }
 
 char *json_get_error_message(enum json_status status) {

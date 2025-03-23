@@ -97,7 +97,7 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
 	static char buffer[420420];
 
-	(void)json_init(buffer, sizeof(buffer));
+	json_init();
 
 	struct json_node node;
 

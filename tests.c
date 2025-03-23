@@ -8,7 +8,7 @@
 static char buffer[420420];
 
 #define OK_PARSE(path, node) {\
-	assert(!json_init(buffer, sizeof(buffer)));\
+	json_init();\
 	enum json_status status;\
     do {\
 		status = json(path, node, buffer, sizeof(buffer));\
@@ -26,7 +26,7 @@ static char buffer[420420];
 }
 
 #define ERROR_PARSE(path, error) {\
-	assert(!json_init(buffer, sizeof(buffer)));\
+	json_init();\
 	struct json_node node;\
     enum json_status status;\
     do {\
@@ -201,7 +201,7 @@ static void ok_misaligned_buffer(void) {
 		char buffer[291]; // Experimentally determined to be the minimum number of required bytes
 	} misaligned;
 
-	assert(!json_init(misaligned.buffer, sizeof(misaligned.buffer)));
+	json_init();
 	enum json_status status;
 	char *path = "./tests_ok/misaligned_buffer.json";
     do {

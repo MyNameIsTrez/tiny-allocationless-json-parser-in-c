@@ -60,7 +60,7 @@ enum json_status {
 	JSON_UNEXPECTED_EXTRA_CHARACTER,
 };
 
-bool json_init(void *buffer, size_t buffer_capacity) __attribute__((warn_unused_result));
+void json_init(void);
 enum json_status json(char *json_file_path, struct json_node *returned, void *buffer, size_t buffer_capacity) __attribute__((warn_unused_result));
 char *json_get_error_message(enum json_status status);
 int json_get_error_line_number(void);
