@@ -42,8 +42,6 @@ struct token {
 };
 
 struct {
-	bool initialized;
-
 	char *text;
 	size_t text_capacity;
 	size_t text_size;
@@ -536,8 +534,6 @@ bool json_init(void *buffer, size_t buffer_capacity) {
 	g->nodes_capacity = 1;
 	g->strings_capacity = 1;
 	g->fields_capacity = 1;
-
-	g->initialized = true;
 
 	return false;
 }
