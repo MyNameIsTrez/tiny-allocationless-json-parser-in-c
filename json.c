@@ -452,12 +452,17 @@ static size_t get_padding(size_t n) {
 	return (16 - (n % 16)) % 16;
 }
 
-static void *get_next_aligned_area(size_t *size) {
-	*size += get_padding(*size);
-	return (char *)g + *size;
+static void *get_next_aligned_area(void *buffer, size_t *size) {
+	// *size+=get_padding(0x1+0x12)
+	// *size+=get_padding(0x13)
+	// *size+=0xd
+	// *size=0x1f
+	*size += get_padding((size_t)buffer + *size);
+
+	return (char *)buffer + *size; // 0x1+0x1f is 0x20
 }
 
-static void allocate_arrays(size_t capacity, size_t padding) {
+static void allocate_arrays(void *buffer, size_t padding, size_t capacity) {
 	g->text_size = 0;
 	g->tokens_size = 0;
 	g->nodes_size = 0;
@@ -465,34 +470,34 @@ static void allocate_arrays(size_t capacity, size_t padding) {
 	g->fields_size = 0;
 
 	// Reserve space for the g struct itself in the buffer
-	size_t size = padding + sizeof(*g);
-	check_if_out_of_memory(size, capacity);
+	size_t size = padding + sizeof(*g); // size=0xf+0x3 is size=0x12
+	check_if_out_of_memory(size, capacity); // 0x12 <= 0x20
 
-	g->text = get_next_aligned_area(&size);
+	g->text = get_next_aligned_area(buffer, &size); // g->text=0x20 and size=0x1f
 	size += g->text_capacity * sizeof(*g->text);
 	check_if_out_of_memory(size, capacity);
 
-	g->tokens = get_next_aligned_area(&size);
+	g->tokens = get_next_aligned_area(buffer, &size);
 	size += g->tokens_capacity * sizeof(*g->tokens);
 	check_if_out_of_memory(size, capacity);
 
-	g->nodes = get_next_aligned_area(&size);
+	g->nodes = get_next_aligned_area(buffer, &size);
 	size += g->nodes_capacity * sizeof(*g->nodes);
 	check_if_out_of_memory(size, capacity);
 
-	g->strings = get_next_aligned_area(&size);
+	g->strings = get_next_aligned_area(buffer, &size);
 	size += g->strings_capacity * sizeof(*g->strings);
 	check_if_out_of_memory(size, capacity);
 
-	g->fields = get_next_aligned_area(&size);
+	g->fields = get_next_aligned_area(buffer, &size);
 	size += g->fields_capacity * sizeof(*g->fields);
 	check_if_out_of_memory(size, capacity);
 
-	g->fields_buckets = get_next_aligned_area(&size);
+	g->fields_buckets = get_next_aligned_area(buffer, &size);
 	size += g->fields_capacity * sizeof(*g->fields_buckets);
 	check_if_out_of_memory(size, capacity);
 
-	g->fields_chains = get_next_aligned_area(&size);
+	g->fields_chains = get_next_aligned_area(buffer, &size);
 	size += g->fields_capacity * sizeof(*g->fields_chains);
 	check_if_out_of_memory(size, capacity);
 }
@@ -503,10 +508,12 @@ enum json_status json(char *json_file_path, struct json_node *returned, void *bu
 		return status;
 	}
 
-	size_t padding = get_padding((size_t)buffer);
-	g = (void *)(padding + (char *)buffer);
+	// Reserve space for the g struct itself in the buffer
+	// Assuming buffer=0x1, sizeof(*g)=0x3, and buffer_capacity=0x20
+	size_t padding = get_padding((size_t)buffer); // padding=0xf
+	g = (void *)(padding + (char *)buffer); // g=0x10
 
-	allocate_arrays(buffer_capacity, padding);
+	allocate_arrays(buffer, padding, buffer_capacity);
 
 	read_text(json_file_path);
 
