@@ -87,7 +87,7 @@ int main() {
 }
 ```
 
-Its `json_init()` can't fail, and it's 400 lines of code, rather than 437. [grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html) its allocationless strategy is based on this branch.
+Its `json_init()` can't fail, and it's 461 lines of code, rather than 473. [grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html) its allocationless strategy is based on this branch.
 
 ## Even simpler version
 
