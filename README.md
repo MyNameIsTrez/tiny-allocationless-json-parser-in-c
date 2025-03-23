@@ -65,7 +65,29 @@ The parser uses an [array-based hash table](https://mynameistrez.github.io/2024/
 
 The [JSON spec](https://www.json.org/json-en.html) specifies that the other value types are `number`, `true`, `false` and `null`, but they can all be stored as strings. You could easily support these however by adding just a few dozen lines to `json.c`, so feel free to. The `\` character also does not allow escaping the `"` character in strings.
 
-## The old version that was smaller and simpler
+## Simpler version
+
+If you don't need to have several JSON files open at the same, you can use the [structless branch](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/structless). Its `json_init()` can't fail, and it's 400 lines of code, rather than 437:
+
+```c
+int main() {
+    char buffer[420];
+
+    json_init();
+
+    struct json_node node;
+
+    enum json_status status = json("foo.json", &node, buffer, sizeof(buffer));
+    if (status) {
+        // Handle error here
+        exit(EXIT_FAILURE);
+    }
+
+    // You can now recursively walk the JSON data in the node variable here
+}
+```
+
+## The old version that was even smaller and simpler
 
 Originally `json.c` was 397 lines of code, which you can still view in the branch called [static-arrays](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/static-arrays):
 
