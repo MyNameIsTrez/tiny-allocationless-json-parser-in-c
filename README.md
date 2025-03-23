@@ -87,7 +87,7 @@ int main() {
 }
 ```
 
-## The old version that was even smaller and simpler
+## Even simpler version
 
 Originally `json.c` was 397 lines of code, which you can still view in the branch called [static-arrays](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/static-arrays):
 
