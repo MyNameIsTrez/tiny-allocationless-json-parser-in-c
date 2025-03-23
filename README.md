@@ -1,6 +1,6 @@
 # Tiny allocationless JSON parser in C
 
-This library parses a subset of [JSON](https://en.wikipedia.org/wiki/JSON) in 467 lines of C, where only arrays, objects and strings are handled.
+This library parses a subset of [JSON](https://en.wikipedia.org/wiki/JSON) in 473 lines of C, where only arrays, objects and strings are handled.
 
 I wrote this JSON parser for my tiny programming language called [grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html).
 
@@ -57,7 +57,7 @@ int main() {
 
 ## How it works
 
-The `json_init()` function puts an internal struct at the start of the buffer [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/eed044c1d1950a0df7707e197b4cf05a3520b11f/json.c#L534-L540). `json()` uses the remaining buffer bytes to allocate the arrays it needs for parsing [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/eed044c1d1950a0df7707e197b4cf05a3520b11f/json.c#L462).
+The `json_init()` function puts an internal struct at the start of the buffer [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/7d5bb76d11aa32da22c39a186ed2f721959abf64/json.c#L539-L543). `json()` uses the remaining buffer bytes to allocate the arrays it needs for parsing [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/7d5bb76d11aa32da22c39a186ed2f721959abf64/json.c#L465).
 
 If one of the arrays turns out to be too small, it'll automatically restart the parsing, with the array's capacity doubled [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/1e5dd1ae77e3f247f28026cc10abedd876aa43f0/json.c#L375-L376). So the first parsed JSON file will take a few iterations to be parsed successfully, while the JSON files after that will usually just take a single iteration.
 
