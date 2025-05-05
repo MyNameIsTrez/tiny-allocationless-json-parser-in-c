@@ -1,8 +1,8 @@
 # Tiny allocationless JSON parser in C
 
-This library parses a subset of [JSON](https://en.wikipedia.org/wiki/JSON) in 473 lines of C, where only arrays, objects and strings are handled.
+This library parses a subset of [JSON](https://en.wikipedia.org/wiki/JSON) in 473 lines of C. Only arrays, objects and strings are handled.
 
-I wrote this JSON parser for my tiny programming language called [grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html).
+I wrote this JSON parser for my tiny programming language called [grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html). `grug.h` its allocationless API uses the same tricks as this JSON parser.
 
 I was inspired by null program's [Minimalist C Libraries](https://nullprogram.com/blog/2018/06/10/) blog post, describing how C libraries never really need to allocate any memory themselves. The trick is to expect the user to pass `void *buffer` and `size_t buffer_capacity`:
 
@@ -63,11 +63,11 @@ If one of the arrays turns out to be too small, it'll automatically restart the 
 
 The parser uses an [array-based hash table](https://mynameistrez.github.io/2024/06/19/array-based-hash-table-in-c.html) to detect duplicate object keys, and `longjmp()` to [keep the clutter of error handling at bay](https://mynameistrez.github.io/2024/03/21/setjmp-plus-longjmp-equals-goto-but-awesome.html).
 
-The [JSON spec](https://www.json.org/json-en.html) specifies that the other value types are `number`, `true`, `false` and `null`, but they can all be stored as strings. You could easily support these however by adding just a few dozen lines to `json.c`, so feel free to. The `\` character also does not allow escaping the `"` character in strings.
+The [JSON spec](https://www.json.org/json-en.html) specifies that the other value types are `number`, `true`, `false` and `null`, but they can all be stored as strings. You could easily support these however by adding just a few dozen lines to `json.c`, and a handful of tests, so feel free to. This JSON parser also does not allow the `\` character to escape the `"` character in strings.
 
 ## Simpler version
 
-If you don't need to have several JSON files open at the same, you can use the [structless branch](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/structless):
+If you don't need to have several JSON files open at the same, so if you don't mind the code being stateful, you can use the branch called [structless](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/structless):
 
 ```c
 int main() {
@@ -87,7 +87,7 @@ int main() {
 }
 ```
 
-Its `json_init()` can't fail, and it's 461 lines of code, rather than 473. [grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html) its allocationless strategy is based on this branch.
+Its `json_init()` can't fail, and it's 461 lines of code, rather than 473.
 
 ## Even simpler version
 
