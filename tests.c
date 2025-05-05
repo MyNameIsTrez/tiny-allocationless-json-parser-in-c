@@ -9,10 +9,7 @@ static char buffer[420420];
 
 #define OK_PARSE(path, node) {\
 	json_init();\
-	enum json_status status;\
-    do {\
-		status = json(path, node, buffer, sizeof(buffer));\
-    } while (status == JSON_OUT_OF_MEMORY);\
+	enum json_status status = json(path, node, buffer, sizeof(buffer));\
 	if (status) {\
 		fprintf(\
 			stderr,\
@@ -28,10 +25,7 @@ static char buffer[420420];
 #define ERROR_PARSE(path, error) {\
 	json_init();\
 	struct json_node node;\
-    enum json_status status;\
-    do {\
-        status = json(path, &node, buffer, sizeof(buffer));\
-    } while (status == JSON_OUT_OF_MEMORY);\
+    enum json_status status = json(path, &node, buffer, sizeof(buffer));\
 	if (status != error) {\
 		fprintf(\
 			stderr,\
@@ -202,11 +196,8 @@ static void ok_misaligned_buffer(void) {
 	} misaligned;
 
 	json_init();
-	enum json_status status;
 	char *path = "./tests_ok/misaligned_buffer.json";
-    do {
-		status = json(path, &node, misaligned.buffer, sizeof(misaligned.buffer));
-    } while (status == JSON_OUT_OF_MEMORY);
+	enum json_status status = json(path, &node, misaligned.buffer, sizeof(misaligned.buffer));
 	if (status) {
 		fprintf(
 			stderr,
