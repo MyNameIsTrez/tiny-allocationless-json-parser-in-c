@@ -41,7 +41,7 @@ struct token {
 	char *str;
 };
 
-struct {
+static struct {
 	char *text;
 	size_t text_capacity;
 	size_t text_size;
