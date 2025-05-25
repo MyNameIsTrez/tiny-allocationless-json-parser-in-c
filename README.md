@@ -2,7 +2,7 @@
 
 This library parses a subset of [JSON](https://en.wikipedia.org/wiki/JSON) in 533 lines of C. Only arrays, objects and strings are handled.
 
-I wrote this JSON parser for my tiny programming language called [grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html). `grug.h` its allocationless API uses the same tricks as this JSON parser.
+I wrote this JSON parser for my tiny programming language called [grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html).
 
 I was inspired by null program's [Minimalist C Libraries](https://nullprogram.com/blog/2018/06/10/) blog post, describing how C libraries never really need to allocate any memory themselves. The trick is to expect the user to pass `void *buffer` and `size_t buffer_capacity`:
 
@@ -116,6 +116,8 @@ It used static arrays with hardcoded sizes, which I described the advantages of 
 There were two problems with it:
 1. It didn't give the user control over how the memory was allocated. So you'd have to manually edit `#define` statements in `json.c`, if you wanted to increase say the maximum number of tokens that a JSON file is allowed to contain.
 2. Whenever `json_parse()` was called, its static arrays would be reset. This meant that calling the function a second time would overwrite the previous call's JSON result. This was fine if you didn't need to open more than one JSON file at a time, though. But even if you did, you could just manually copy around the arrays containing the JSON data.
+
+[grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html) still uses this static arrays approach.
 
 ## Running the tests
 
