@@ -114,7 +114,8 @@ void grow(void *data_, size_t *capacity, size_t size, size_t element_size) {
 	buffer_size += (*capacity) * element_size;
 	check_if_out_of_memory();
 
-	if (*data) {
+	if (size > 0) {
+		assert(*data);
 		memcpy(new_data, *data, size * element_size);
 	}
 
@@ -148,7 +149,8 @@ void grow_n(void *data_, size_t *capacity, size_t size, size_t element_size, siz
 	buffer_size += (*capacity) * element_size;
 	check_if_out_of_memory();
 
-	if (*data) {
+	if (size > 0) {
+		assert(*data);
 		memcpy(new_data, *data, size * element_size);
 	}
 
@@ -180,7 +182,8 @@ void grow_table(void *data_, size_t *capacity, size_t size, size_t element_size,
 
 	check_if_out_of_memory();
 
-	if (*data) {
+	if (size > 0) {
+		assert(*data);
 		memcpy(new_data, *data, size * element_size);
 
 		assert(*buckets);
@@ -303,8 +306,9 @@ static struct json_node parse_object(size_t *i) {
 				seen_value = true;
 				seen_comma = false;
 				string = parse_string(i);
-				field.value = g->nodes + g->nodes_size;
+				size_t old_nodes_size = g->nodes_size;
 				push_node(string);
+				field.value = g->nodes + old_nodes_size;
 				json_assert(node.object.field_count < MAX_CHILD_NODES, JSON_TOO_MANY_CHILD_NODES);
 				child_fields[node.object.field_count++] = field;
 			} else {
@@ -316,8 +320,9 @@ static struct json_node parse_object(size_t *i) {
 				seen_value = true;
 				seen_comma = false;
 				array = parse_array(i);
-				field.value = g->nodes + g->nodes_size;
+				size_t old_nodes_size = g->nodes_size;
 				push_node(array);
+				field.value = g->nodes + old_nodes_size;
 				json_assert(node.object.field_count < MAX_CHILD_NODES, JSON_TOO_MANY_CHILD_NODES);
 				child_fields[node.object.field_count++] = field;
 			} else {
@@ -331,8 +336,9 @@ static struct json_node parse_object(size_t *i) {
 				seen_value = true;
 				seen_comma = false;
 				object = parse_object(i);
-				field.value = g->nodes + g->nodes_size;
+				size_t old_nodes_size = g->nodes_size;
 				push_node(object);
+				field.value = g->nodes + old_nodes_size;
 				json_assert(node.object.field_count < MAX_CHILD_NODES, JSON_TOO_MANY_CHILD_NODES);
 				child_fields[node.object.field_count++] = field;
 			} else {
@@ -347,10 +353,11 @@ static struct json_node parse_object(size_t *i) {
 			} else if (seen_comma) {
 				json_error(JSON_TRAILING_COMMA);
 			}
-			node.object.fields = g->fields + g->fields_size;
+			size_t old_fields_size = g->fields_size;
 			for (size_t field_index = 0; field_index < node.object.field_count; field_index++) {
 				push_field(child_fields[field_index]);
 			}
+			node.object.fields = g->fields + old_fields_size;
 			check_duplicate_keys(child_fields, node.object.field_count);
 			(*i)++;
 			recursion_depth--;
@@ -410,10 +417,11 @@ static struct json_node parse_array(size_t *i) {
 			break;
 		case TOKEN_TYPE_ARRAY_CLOSE:
 			json_assert(!seen_comma, JSON_TRAILING_COMMA);
-			node.array.values = g->nodes + g->nodes_size;
+			size_t old_nodes_size = g->nodes_size;
 			for (size_t value_index = 0; value_index < node.array.value_count; value_index++) {
 				push_node(child_nodes[value_index]);
 			}
+			node.array.values = g->nodes + old_nodes_size;
 			(*i)++;
 			recursion_depth--;
 			return node;
