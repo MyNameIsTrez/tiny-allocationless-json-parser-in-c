@@ -1,5 +1,6 @@
 #include "json.h"
 
+#include <assert.h>
 #include <ctype.h>
 #include <setjmp.h>
 #include <stdint.h>
@@ -59,40 +60,153 @@ static struct {
 	size_t strings_size;
 
 	struct json_field *fields;
-	uint32_t *fields_buckets;
-	uint32_t *fields_chains;
 	size_t fields_capacity;
 	size_t fields_size;
+	uint32_t *fields_buckets;
+	uint32_t *fields_chains;
 } *g;
+
+static void *buffer;
+static size_t buffer_capacity;
+static size_t buffer_size;
 
 static size_t recursion_depth;
 
 static struct json_node parse_string(size_t *i);
 static struct json_node parse_array(size_t *i);
 
-static void push_node(struct json_node node) {
-	if (g->nodes_size + 1 > g->nodes_capacity) {
-		g->nodes_capacity *= 2;
-		json_error(JSON_RESTART);
+static void check_if_out_of_memory() {
+	if (buffer_size > buffer_capacity) {
+		json_error(JSON_OUT_OF_MEMORY);
+	}
+}
+
+// Used to align to 16 bytes
+static size_t get_padding(size_t n) {
+	return (16 - (n % 16)) % 16;
+}
+
+static void *get_next_aligned_area() {
+	// buffer_size+=get_padding(0x1+0x12)
+	// buffer_size+=get_padding(0x13)
+	// buffer_size+=0xd
+	// buffer_size=0x1f
+	buffer_size += get_padding((size_t)buffer + buffer_size);
+
+	return (char *)buffer + buffer_size; // 0x1+0x1f is 0x20
+}
+
+void grow(void *data_, size_t *capacity, size_t size, size_t element_size) {
+	void **data = data_;
+
+	if (size + 1 <= *capacity) {
+		return;
 	}
 
+	if (*capacity == 0) {
+		*capacity = 1;
+	}
+
+	// Grow by 2x
+	*capacity *= 2;
+
+	void *new_data = get_next_aligned_area();
+	buffer_size += (*capacity) * element_size;
+	check_if_out_of_memory();
+
+	if (*data) {
+		memcpy(new_data, *data, size * element_size);
+	}
+
+	*data = new_data;
+}
+
+size_t ceil_div(size_t x, size_t y) {
+	return (x + y - 1) / y;
+}
+
+void grow_n(void *data_, size_t *capacity, size_t size, size_t element_size, size_t n) {
+	void **data = data_;
+
+	if (size + n <= *capacity) {
+		return;
+	}
+
+	if (*capacity == 0) {
+		*capacity = 1;
+	}
+
+	// size=0, n=1, capacity=1 => growth_factor is 1
+	// size=1, n=1, capacity=1 => growth_factor is 2
+	// size=1, n=2, capacity=2 => growth_factor is 2
+	//   This is the case that requires ceil_div(), rather than regular division
+	size_t growth_factor = ceil_div(size + n, *capacity);
+
+	*capacity *= growth_factor;
+
+	void *new_data = get_next_aligned_area();
+	buffer_size += (*capacity) * element_size;
+	check_if_out_of_memory();
+
+	if (*data) {
+		memcpy(new_data, *data, size * element_size);
+	}
+
+	*data = new_data;
+}
+
+void grow_table(void *data_, size_t *capacity, size_t size, size_t element_size, uint32_t **buckets, uint32_t **chains) {
+	void **data = data_;
+
+	if (size + 1 <= *capacity) {
+		return;
+	}
+
+	if (*capacity == 0) {
+		*capacity = 1;
+	}
+
+	// Grow by 2x
+	*capacity *= 2;
+
+	void *new_data = get_next_aligned_area();
+	buffer_size += (*capacity) * element_size;
+
+	void *new_buckets = get_next_aligned_area();
+	buffer_size += (*capacity) * sizeof(uint32_t);
+
+	void *new_chains = get_next_aligned_area();
+	buffer_size += (*capacity) * sizeof(uint32_t);
+
+	check_if_out_of_memory();
+
+	if (*data) {
+		memcpy(new_data, *data, size * element_size);
+
+		assert(*buckets);
+		memcpy(new_buckets, *buckets, size * sizeof(uint32_t));
+
+		assert(*chains);
+		memcpy(new_chains, *chains, size * sizeof(uint32_t));
+	}
+
+	*data = new_data;
+	*buckets = new_buckets;
+	*chains = new_chains;
+}
+
+static void push_node(struct json_node node) {
+	grow(&g->nodes, &g->nodes_capacity, g->nodes_size, sizeof(struct json_node));
 	g->nodes[g->nodes_size++] = node;
 }
 
 static void push_field(struct json_field field) {
-	if (g->fields_size + 1 > g->fields_capacity) {
-		g->fields_capacity *= 2;
-		json_error(JSON_RESTART);
-	}
-
+	grow_table(&g->fields, &g->fields_capacity, g->fields_size, sizeof(struct json_field), &g->fields_buckets, &g->fields_chains);
 	g->fields[g->fields_size++] = field;
 }
 
 static char *push_string(char *slice_start, size_t length) {
-	if (g->strings_size + length + 1 > g->strings_capacity) {
-		g->strings_capacity *= 2;
-		json_error(JSON_RESTART);
-	}
+	grow_n(&g->strings, &g->strings_capacity, g->strings_size, sizeof(char), length + 1);
 
 	char *new_str = g->strings + g->strings_size;
 
@@ -369,10 +483,7 @@ static struct json_node parse(size_t *i) {
 }
 
 static void push_token(enum token_type type, size_t offset, size_t length) {
-	if (g->tokens_size + 1 > g->tokens_capacity) {
-		g->tokens_capacity *= 2;
-		json_error(JSON_RESTART);
-	}
+	grow(&g->tokens, &g->tokens_capacity, g->tokens_size, sizeof(struct token));
 
 	g->tokens[g->tokens_size++] = (struct token){
 		.type = type,
@@ -419,101 +530,64 @@ static void read_text(char *json_file_path) {
 	FILE *f = fopen(json_file_path, "r");
 	json_assert(f, JSON_FAILED_TO_OPEN_FILE);
 
-	g->text_size = fread(
-		g->text,
-		sizeof(char),
-		g->text_capacity,
-		f
-	);
+	grow(&g->text, &g->text_capacity, g->text_size, sizeof(char));
 
-	int is_eof = feof(f);
-	int err = ferror(f);
+	while (true) {
+		g->text_size = fread(
+			g->text,
+			sizeof(char),
+			g->text_capacity,
+			f
+		);
+
+		int is_eof = feof(f);
+		int err = ferror(f);
+
+		json_assert(g->text_size != 0, JSON_FILE_EMPTY);
+		json_assert(err == 0, JSON_FILE_READING_ERROR);
+		
+		if (is_eof) {
+			break;
+		}
+
+		// Double the array's capacity, and retry reading the file
+		assert(g->text_size == g->text_capacity);
+		grow_n(&g->text, &g->text_capacity, g->text_size, sizeof(char), g->text_capacity);
+		fseek(f, 0, SEEK_SET);
+	}
 
 	json_assert(fclose(f) == 0, JSON_FAILED_TO_CLOSE_FILE);
 
-	json_assert(g->text_size != 0, JSON_FILE_EMPTY);
-
-	if (!is_eof) {
-		g->text_capacity *= 2;
-		json_error(JSON_RESTART);
-	}
-
-	json_assert(err == 0, JSON_FILE_READING_ERROR);
 }
 
-static void check_if_out_of_memory(size_t size, size_t capacity) {
-	if (size > capacity) {
-		json_error(JSON_OUT_OF_MEMORY);
-	}
-}
+static void allocate_arrays() {
+	// Reserve space for the g struct itself in the buffer
+	// Assuming buffer=0x1, sizeof(*g)=0x3, and buffer_capacity=0x20
+	size_t padding = get_padding((size_t)buffer); // padding=0xf
 
-// Used to align to 16 bytes
-static size_t get_padding(size_t n) {
-	return (16 - (n % 16)) % 16;
-}
+	buffer_size = padding + sizeof(*g); // buffer_size=0xf+0x3 is buffer_size=0x12
 
-static void *get_next_aligned_area(void *buffer, size_t *size) {
-	// *size+=get_padding(0x1+0x12)
-	// *size+=get_padding(0x13)
-	// *size+=0xd
-	// *size=0x1f
-	*size += get_padding((size_t)buffer + *size);
+	check_if_out_of_memory(buffer_size, buffer_capacity); // 0x12 <= 0x20, so not OOM
 
-	return (char *)buffer + *size; // 0x1+0x1f is 0x20
-}
+	g = (void *)(padding + (char *)buffer); // g=0x10
 
-static void allocate_arrays(void *buffer, size_t padding, size_t capacity) {
 	g->text_size = 0;
 	g->tokens_size = 0;
 	g->nodes_size = 0;
 	g->strings_size = 0;
 	g->fields_size = 0;
-
-	// Reserve space for the g struct itself in the buffer
-	size_t size = padding + sizeof(*g); // size=0xf+0x3 is size=0x12
-	check_if_out_of_memory(size, capacity); // 0x12 <= 0x20
-
-	g->text = get_next_aligned_area(buffer, &size); // g->text=0x20 and size=0x1f
-	size += g->text_capacity * sizeof(*g->text);
-	check_if_out_of_memory(size, capacity);
-
-	g->tokens = get_next_aligned_area(buffer, &size);
-	size += g->tokens_capacity * sizeof(*g->tokens);
-	check_if_out_of_memory(size, capacity);
-
-	g->nodes = get_next_aligned_area(buffer, &size);
-	size += g->nodes_capacity * sizeof(*g->nodes);
-	check_if_out_of_memory(size, capacity);
-
-	g->strings = get_next_aligned_area(buffer, &size);
-	size += g->strings_capacity * sizeof(*g->strings);
-	check_if_out_of_memory(size, capacity);
-
-	g->fields = get_next_aligned_area(buffer, &size);
-	size += g->fields_capacity * sizeof(*g->fields);
-	check_if_out_of_memory(size, capacity);
-
-	g->fields_buckets = get_next_aligned_area(buffer, &size);
-	size += g->fields_capacity * sizeof(*g->fields_buckets);
-	check_if_out_of_memory(size, capacity);
-
-	g->fields_chains = get_next_aligned_area(buffer, &size);
-	size += g->fields_capacity * sizeof(*g->fields_chains);
-	check_if_out_of_memory(size, capacity);
 }
 
-enum json_status json(char *json_file_path, struct json_node *returned, void *buffer, size_t buffer_capacity) {
+enum json_status json(char *json_file_path, struct json_node *returned, void *buffer_, size_t buffer_capacity_) {
 	enum json_status status = setjmp(error_jmp_buffer);
-	if (status && status != JSON_RESTART) {
+	if (status) {
 		return status;
 	}
 
-	// Reserve space for the g struct itself in the buffer
-	// Assuming buffer=0x1, sizeof(*g)=0x3, and buffer_capacity=0x20
-	size_t padding = get_padding((size_t)buffer); // padding=0xf
-	g = (void *)(padding + (char *)buffer); // g=0x10
+	buffer = buffer_;
+	buffer_capacity = buffer_capacity_;
 
-	allocate_arrays(buffer, padding, buffer_capacity);
+	allocate_arrays();
 
 	read_text(json_file_path);
 
@@ -527,20 +601,24 @@ enum json_status json(char *json_file_path, struct json_node *returned, void *bu
 	return JSON_OK;
 }
 
-bool json_init(void *buffer, size_t buffer_capacity) {
-	size_t padding = get_padding((size_t)buffer);
+// The sole reason this function exists, is so that the user
+// does not have to zero-initialize the *entire* buffer:
+// Zero-initializing say a 1 GB buffer is slow and wastes COW RAM,
+// so this function only initializes the g->x_capacity fields.
+bool json_init(void *buffer_, size_t buffer_capacity_) {
+	size_t padding = get_padding((size_t)buffer_);
 
-	if (buffer_capacity < padding + sizeof(*g)) {
+	if (buffer_capacity_ < padding + sizeof(*g)) {
 		return true;
 	}
 
-	g = (void *)(padding + (char *)buffer);
+	g = (void *)(padding + (char *)buffer_);
 
-	g->text_capacity = 1;
-	g->tokens_capacity = 1;
-	g->nodes_capacity = 1;
-	g->strings_capacity = 1;
-	g->fields_capacity = 1;
+	g->text_capacity = 0;
+	g->tokens_capacity = 0;
+	g->nodes_capacity = 0;
+	g->strings_capacity = 0;
+	g->fields_capacity = 0;
 
 	return false;
 }
@@ -549,7 +627,6 @@ char *json_get_error_message(enum json_status status) {
 	static char *messages[] = {
 		[JSON_OK] = "No error",
 		[JSON_OUT_OF_MEMORY] = "Out of memory",
-		[JSON_RESTART] = "Restart",
 		[JSON_FAILED_TO_OPEN_FILE] = "Failed to open file",
 		[JSON_FAILED_TO_CLOSE_FILE] = "Failed to close file",
 		[JSON_FILE_EMPTY] = "File is empty",
