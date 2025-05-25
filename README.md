@@ -67,11 +67,9 @@ The [JSON spec](https://www.json.org/json-en.html) specifies that the other valu
 
 ## Simpler version: restart on reallocation
 
-If you don't mind the first JSON file taking a bit longer to be parsed, you can use the branch called [restart-on-reallocation](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/restart-on-reallocation).
+If you don't mind the first JSON file taking a bit longer to be parsed, you can use the branch called [restart-on-reallocation](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/restart-on-reallocation). It is 473 lines of code.
 
 If one of the internal arrays is too small, it'll automatically restart the parsing, where the array's capacity is doubled [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/1e5dd1ae77e3f247f28026cc10abedd876aa43f0/json.c#L375-L376). So the first parsed JSON file will take a few iterations to be parsed successfully, while the JSON files after that will usually just take a single iteration.
-
-It is 473 lines of code.
 
 ## Even simpler version: structless
 
