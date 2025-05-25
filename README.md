@@ -59,13 +59,21 @@ int main() {
 
 The `json_init()` function puts an internal struct at the start of the buffer [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/7d5bb76d11aa32da22c39a186ed2f721959abf64/json.c#L539-L543). `json()` uses the remaining buffer bytes to allocate the arrays it needs for parsing [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/7d5bb76d11aa32da22c39a186ed2f721959abf64/json.c#L465).
 
-If one of the arrays turns out to be too small, it'll automatically restart the parsing, with the array's capacity doubled [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/1e5dd1ae77e3f247f28026cc10abedd876aa43f0/json.c#L375-L376). So the first parsed JSON file will take a few iterations to be parsed successfully, while the JSON files after that will usually just take a single iteration.
+If one of the internal arrays is too small, it'll double the array's capacity [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/c02215b1239f9a9c2f832f817ea5e6bab7eb6a19/json.c#L99-L123).
 
 The parser uses an [array-based hash table](https://mynameistrez.github.io/2024/06/19/array-based-hash-table-in-c.html) to detect duplicate object keys, and `longjmp()` to [keep the clutter of error handling at bay](https://mynameistrez.github.io/2024/03/21/setjmp-plus-longjmp-equals-goto-but-awesome.html).
 
 The [JSON spec](https://www.json.org/json-en.html) specifies that the other value types are `number`, `true`, `false` and `null`, but they can all be stored as strings. You could easily support these however by adding just a few dozen lines to `json.c`, and a handful of tests, so feel free to. This JSON parser also does not allow the `\` character to escape the `"` character in strings.
 
-## Simpler version
+## Simpler version: restart on reallocation
+
+If you don't mind the first JSON file taking a bit longer to be parsed, you can use the branch called [restart-on-reallocation](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/restart-on-reallocation).
+
+If one of the internal arrays is too small, it'll automatically restart the parsing, where the array's capacity is doubled [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/1e5dd1ae77e3f247f28026cc10abedd876aa43f0/json.c#L375-L376). So the first parsed JSON file will take a few iterations to be parsed successfully, while the JSON files after that will usually just take a single iteration.
+
+It is 473 lines of code.
+
+## Even simpler version: structless
 
 If you don't need to have several JSON files open at the same, so if you don't mind the code being stateful, you can use the branch called [structless](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/structless):
 
@@ -87,9 +95,9 @@ int main() {
 }
 ```
 
-Its `json_init()` can't fail, and it's 461 lines of code, rather than 473.
+Its `json_init()` can't fail, and it is 461 lines of code.
 
-## Even simpler version
+## Simplest version: static arrays
 
 Originally `json.c` was 397 lines of code, which you can still view in the branch called [static-arrays](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/static-arrays):
 
