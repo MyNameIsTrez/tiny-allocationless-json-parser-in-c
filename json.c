@@ -75,7 +75,7 @@ static size_t recursion_depth;
 static struct json_node parse_string(size_t *i);
 static struct json_node parse_array(size_t *i);
 
-static void check_if_out_of_memory() {
+static void check_if_out_of_memory(void) {
 	if (buffer_size > buffer_capacity) {
 		json_error(JSON_OUT_OF_MEMORY);
 	}
@@ -86,7 +86,7 @@ static size_t get_padding(size_t n) {
 	return (16 - (n % 16)) % 16;
 }
 
-static void *get_next_aligned_area() {
+static void *get_next_aligned_area(void) {
 	// buffer_size+=get_padding(0x1+0x12)
 	// buffer_size+=get_padding(0x13)
 	// buffer_size+=0xd
@@ -568,16 +568,14 @@ static void read_text(char *json_file_path) {
 
 }
 
-static void allocate_arrays() {
+static void allocate_arrays(void) {
 	// Reserve space for the g struct itself in the buffer
 	// Assuming buffer=0x1, sizeof(*g)=0x3, and buffer_capacity=0x20
 	size_t padding = get_padding((size_t)buffer); // padding=0xf
 
-	buffer_size = padding + sizeof(*g); // buffer_size=0xf+0x3 is buffer_size=0x12
-
-	check_if_out_of_memory(buffer_size, buffer_capacity); // 0x12 <= 0x20, so not OOM
-
 	g = (void *)(padding + (char *)buffer); // g=0x10
+	buffer_size = padding + sizeof(*g); // buffer_size=0xf+0x3 is buffer_size=0x12
+	check_if_out_of_memory(); // 0x12 <= 0x20, so not OOM
 
 	g->text_size = 0;
 	g->tokens_size = 0;
