@@ -24,7 +24,7 @@ The parser uses an [array-based hash table](https://mynameistrez.github.io/2024/
   - `struct json_node *json_object_get(const struct json_node *object, const char *key);`
   - `struct json_node *json_array_get(const struct json_node *array, size_t index);`
   - `bool json_is_string(const struct json_node *node);`
-- Update the blog post and JSON repo readme with example usage of the new API. Mention the new branch and JSONTestSuite.
+- Update this readme with example usage of the new API. Mention the new branch and JSONTestSuite.
 - Update the two code permalinks in the `## How it works` section, such that they link to the same code, but in the main branch.
 - Update the LoC count that's mentioned in the readme.
 - Set up CI that verifies that my own `json.c` is written in pure C89 and works with `-nostdlib`, to maximize portability.
