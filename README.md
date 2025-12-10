@@ -4,7 +4,43 @@ This library parses a subset of [JSON](https://en.wikipedia.org/wiki/JSON) in 53
 
 I wrote this JSON parser for my tiny programming language called [grug](https://mynameistrez.github.io/2024/02/29/creating-the-perfect-modding-language.html).
 
-I was inspired by null program's [Minimalist C Libraries](https://nullprogram.com/blog/2018/06/10/) blog post, describing how C libraries never really need to allocate any memory themselves. The trick is to expect the user to pass `void *buffer` and `size_t buffer_capacity`:
+I was inspired by null program's [Minimalist C Libraries](https://nullprogram.com/blog/2018/06/10/) blog post, describing how C libraries never really need to allocate any memory themselves. The trick is to expect the user to pass `void *buffer` and `size_t buffer_capacity`.
+
+## How it works
+
+The `json_init()` function puts an internal struct at the start of the buffer [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/7d5bb76d11aa32da22c39a186ed2f721959abf64/json.c#L539-L543). `json()` uses the remaining buffer bytes to allocate the arrays it needs for parsing [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/7d5bb76d11aa32da22c39a186ed2f721959abf64/json.c#L465).
+
+The parser uses an [array-based hash table](https://mynameistrez.github.io/2024/06/19/array-based-hash-table-in-c.html) to detect duplicate object keys.
+
+### TODO
+
+- Let `json()` take the input text as characters, removing `read_text()`, its error enums, and its tests.
+- Replace `setjmp()` and `longjmp()` with letting functions return error codes.
+- Pass `g` as an argument to all functions, so the parser doesn't have any global variables.
+- Use the JSON parser [cj](https://sr.ht/~cryo/cj/) for inspiration on how to simplify the API further.
+- Use [JSONTestSuite](https://github.com/nst/JSONTestSuite?tab=readme-ov-file) its own parser, to check that it its own parser passes 100%.
+- Set up CI that verifies that my own `json.c` passes JSONTestSuite 100%.
+- Add utility functions, like:
+  - `struct json_node *json_object_get(const struct json_node *object, const char *key);`
+  - `struct json_node *json_array_get(const struct json_node *array, size_t index);`
+  - `bool json_is_string(const struct json_node *node);`
+- Update the blog post and JSON repo readme with example usage of the new API. Mention the new branch and JSONTestSuite.
+- Update the two code permalinks in the `## How it works` section, such that they link to the same code, but in the main branch.
+- Update the LoC count that's mentioned in the readme.
+- Set up CI that verifies that my own `json.c` is written in pure C89 and works with `-nostdlib`, to maximize portability.
+- Set up CI that uses my gcovr instructions from my readme to prove 100% coverage.
+
+## Four other versions
+
+The [JSON spec](https://www.json.org/json-en.html) specifies that the other value types are `number`, `true`, `false` and `null`, but they can all be stored as strings. You could easily support these however by adding just a few dozen lines to `json.c`, and a handful of tests, so feel free to. These JSON parsers also do not support escaping characters in strings.
+
+These parsers use `longjmp()` to [keep the clutter of error handling at bay](https://mynameistrez.github.io/2024/03/21/setjmp-plus-longjmp-equals-goto-but-awesome.html).
+
+### Grow on reallocation
+
+If you don't mind the first JSON file taking a bit longer to be parsed, you can use the branch called [grow-on-reallocation](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/grow-on-reallocation). It is 533 lines of code.
+
+If one of the internal arrays is too small, it'll double the array's capacity [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/c02215b1239f9a9c2f832f817ea5e6bab7eb6a19/json.c#L99-L123), leaving the old allocation in the buffer.
 
 ```c
 int main() {
@@ -55,23 +91,13 @@ int main() {
 }
 ```
 
-## How it works
-
-The `json_init()` function puts an internal struct at the start of the buffer [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/7d5bb76d11aa32da22c39a186ed2f721959abf64/json.c#L539-L543). `json()` uses the remaining buffer bytes to allocate the arrays it needs for parsing [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/7d5bb76d11aa32da22c39a186ed2f721959abf64/json.c#L465).
-
-If one of the internal arrays is too small, it'll double the array's capacity [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/c02215b1239f9a9c2f832f817ea5e6bab7eb6a19/json.c#L99-L123).
-
-The parser uses an [array-based hash table](https://mynameistrez.github.io/2024/06/19/array-based-hash-table-in-c.html) to detect duplicate object keys, and `longjmp()` to [keep the clutter of error handling at bay](https://mynameistrez.github.io/2024/03/21/setjmp-plus-longjmp-equals-goto-but-awesome.html).
-
-The [JSON spec](https://www.json.org/json-en.html) specifies that the other value types are `number`, `true`, `false` and `null`, but they can all be stored as strings. You could easily support these however by adding just a few dozen lines to `json.c`, and a handful of tests, so feel free to. This JSON parser also does not allow the `\` character to escape the `"` character in strings.
-
-## Simpler version: restart on reallocation
+### Restart on reallocation
 
 If you don't mind the first JSON file taking a bit longer to be parsed, you can use the branch called [restart-on-reallocation](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/restart-on-reallocation). It is 473 lines of code.
 
 If one of the internal arrays is too small, it'll automatically restart the parsing, where the array's capacity is doubled [here](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/blob/1e5dd1ae77e3f247f28026cc10abedd876aa43f0/json.c#L375-L376). So the first parsed JSON file will take a few iterations to be parsed successfully, while the JSON files after that will usually just take a single iteration.
 
-## Even simpler version: structless
+### Structless
 
 If you don't need to have several JSON files open at the same, so if you don't mind the code being stateful, you can use the branch called [structless](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/structless):
 
@@ -95,7 +121,7 @@ int main() {
 
 Its `json_init()` can't fail, and it is 461 lines of code.
 
-## Simplest version: static arrays
+### Static arrays
 
 Originally `json.c` was 397 lines of code, which you can still view in the branch called [static-arrays](https://github.com/MyNameIsTrez/tiny-allocationless-json-parser-in-c/tree/static-arrays):
 
@@ -157,19 +183,3 @@ mkdir -p corpus && \
 ./a.out -timeout=1 corpus test_corpus && \
 ./a.out corpus
 ```
-
-## TODO
-
-- Make a copy of the current `main` branch called `grow-on-realloc`.
-- Let `json()` take the input text as characters, removing `read_text()`, its error enums, and its tests.
-- Replace `setjmp()` and `longjmp()` with letting functions return error codes.
-- Pass `g` as an argument to all functions, so the parser doesn't have any global variables.
-- Use JSONTestSuite its own parser, to check that it its own parser passes 100%.
-- Set up CI that verifies that my own `json.c` passes JSONTestSuite 100%.
-- Add utility functions, like:
-  - `struct json_node *json_object_get(const struct json_node *object, const char *key);`
-  - `struct json_node *json_array_get(const struct json_node *array, size_t index);`
-  - `bool json_is_string(const struct json_node *node);`
-- Update the blog post and JSON repo readme. Mention the new branch and JSONTestSuite.
-- Set up CI that verifies that my own `json.c` is written in pure C89 and works with `-nostdlib`, to maximize portability.
-- Set up CI that uses my gcovr instructions from my readme to prove 100% coverage.
