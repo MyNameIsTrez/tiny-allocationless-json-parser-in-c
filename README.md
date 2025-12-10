@@ -1,4 +1,4 @@
-# Tiny allocationless JSON parser in C
+# Allocationless C89 JSON parser
 
 This library parses a subset of [JSON](https://en.wikipedia.org/wiki/JSON) in 533 lines of C. Only arrays, objects and strings are handled.
 
@@ -25,8 +25,9 @@ The parser uses an [array-based hash table](https://mynameistrez.github.io/2024/
   - `struct json_node *json_array_get(const struct json_node *array, size_t index);`
   - `bool json_is_string(const struct json_node *node);`
 - Update this readme with example usage of the new API. Mention the new branch and JSONTestSuite.
-- Update the two code permalinks in the `## How it works` section, such that they link to the same code, but in the main branch.
-- Update the LoC count that's mentioned in the readme.
+- Update this readme's two code permalinks in the `## How it works` section, such that they link to the same code, but in the `main` branch.
+- Update this readme's code permalinks that still refer to this repository's old name `tiny-allocationless-json-parser-in-c`.
+- Update the LoC count that is at the top of this readme.
 - Set up CI that verifies that my own `json.c` is written in pure C89 and works with `-nostdlib`, to maximize portability.
 - Set up CI that uses my gcovr instructions from my readme to prove 100% coverage.
 
