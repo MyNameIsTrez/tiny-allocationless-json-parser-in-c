@@ -157,3 +157,19 @@ mkdir -p corpus && \
 ./a.out -timeout=1 corpus test_corpus && \
 ./a.out corpus
 ```
+
+## TODO
+
+- Make a copy of the current `main` branch called `grow-on-realloc`.
+- Let `json()` take the input text as characters, removing `read_text()`, its error enums, and its tests.
+- Replace `setjmp()` and `longjmp()` with letting functions return error codes.
+- Pass `g` as an argument to all functions, so the parser doesn't have any global variables.
+- Use JSONTestSuite its own parser, to check that it its own parser passes 100%.
+- Set up CI that verifies that my own `json.c` passes JSONTestSuite 100%.
+- Add utility functions, like:
+  - `struct json_node *json_object_get(const struct json_node *object, const char *key);`
+  - `struct json_node *json_array_get(const struct json_node *array, size_t index);`
+  - `bool json_is_string(const struct json_node *node);`
+- Update the blog post and JSON repo readme. Mention the new branch and JSONTestSuite.
+- Set up CI that verifies that my own `json.c` is written in pure C89 and works with `-nostdlib`, to maximize portability.
+- Set up CI that uses my gcovr instructions from my readme to prove 100% coverage.
